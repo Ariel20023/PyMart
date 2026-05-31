@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: storefront
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: storefront
+
+  template:
+    metadata:
+      labels:
+        app: storefront
+
+    spec:
+      containers:
+        - name: storefront
+
+          image: image-registry.openshift-image-registry.svc:5000/ariel-izralevitch-dev/storefront:latest
+
+          imagePullPolicy: Always
+
+          command:
+            - streamlit
+            - run
+            - storefront.py
+            - --server.port=8501
+            - --server.address=0.0.0.0
+            - --server.headless=true
+            - --server.enableCORS=false
+            - --server.enableXsrfProtection=false
+            - --browser.gatherUsageStats=false
+
+          ports:
+            - containerPort: 8501
+
+          env:
+            - name: CATALOG_API_URL
+              value: http://catalog-service:8000
+
+            - name: AUTH_API_URL
+              value: http://auth-service:8001
+
+---
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: storefront
+
+spec:
+  selector:
+    app: storefront
+
+  ports:
+    - port: 8501
+      targetPort: 8501

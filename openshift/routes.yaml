@@ -1,0 +1,42 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: storefront-route
+spec:
+  to:
+    kind: Service
+    name: storefront
+  port:
+    targetPort: 8501
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: minio-route
+spec:
+  to:
+    kind: Service
+    name: minio
+  port:
+    targetPort: 9000
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: minio-console-route
+spec:
+  to:
+    kind: Service
+    name: minio
+  port:
+    targetPort: 9001
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+    

@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: storage-service
+  template:
+    metadata:
+      labels:
+        app: storage-service
+    spec:
+      containers:
+        - name: storage-service
+          image: image-registry.openshift-image-registry.svc:5000/ariel-izralevitch-dev/storage-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8002
+          env:
+            - name: MINIO_ENDPOINT
+              value: minio:9000
+            - name: MINIO_PUBLIC_URL
+              value: https://minio-route-ariel-izralevitch-dev.apps.rm2.thpm.p1.openshiftapps.com
+            - name: MINIO_ACCESS_KEY
+              value: minioadmin
+            - name: MINIO_SECRET_KEY
+              value: minioadmin123
+            - name: MINIO_BUCKET
+              value: pymart-products
+            - name: MINIO_SECURE
+              value: "false"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storage-service
+spec:
+  selector:
+    app: storage-service
+  ports:
+    - port: 8002
+      targetPort: 8002

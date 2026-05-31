@@ -1,0 +1,183 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: pymart_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - pymart_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  redis:
+    image: redis:7
+    container_name: pymart_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pymart_network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: pymart_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - pymart_network
+
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    container_name: pymart_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - pymart_network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  auth_service:
+    build:
+      context: ./auth_service
+      dockerfile: Dockerfile
+    container_name: pymart_auth_service
+    env_file:
+      - .env
+    ports:
+      - "8001:8001"
+    volumes:
+      - auth_data:/app/data
+    networks:
+      - pymart_network
+
+  storage_service:
+    build:
+      context: ./storage_service
+      dockerfile: Dockerfile
+    container_name: pymart_storage_service
+    env_file:
+      - .env
+    ports:
+      - "8002:8002"
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - pymart_network
+
+  catalog_service:
+    build:
+      context: ./catalog_service
+      dockerfile: Dockerfile
+    container_name: pymart_catalog_service
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      auth_service:
+        condition: service_started
+      storage_service:
+        condition: service_started
+    networks:
+      - pymart_network
+
+  cart_service:
+    build:
+      context: ./cart_service
+      dockerfile: Dockerfile
+    container_name: pymart_cart_service
+    env_file:
+      - .env
+    ports:
+      - "8003:8003"
+    depends_on:
+      auth_service:
+        condition: service_started
+      catalog_service:
+        condition: service_started
+      redis:
+        condition: service_started
+    networks:
+      - pymart_network
+
+  order_service:
+    build:
+      context: ./order_service
+      dockerfile: Dockerfile
+    container_name: pymart_order_service
+    env_file:
+      - .env
+    ports:
+      - "8004:8004"
+    volumes:
+      - order_data:/app/data
+    depends_on:
+      auth_service:
+        condition: service_started
+      cart_service:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    networks:
+      - pymart_network
+
+  streamlit:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pymart_storefront
+    env_file:
+      - .env
+    ports:
+      - "8501:8501"
+    depends_on:
+      catalog_service:
+        condition: service_started
+      auth_service:
+        condition: service_started
+      cart_service:
+        condition: service_started
+      order_service:
+        condition: service_started
+    networks:
+      - pymart_network
+
+networks:
+  pymart_network:
+    driver: bridge
+
+volumes:
+  elasticsearch_data:
+  minio_data:
+  auth_data:
+  redis_data:
+  rabbitmq_data:
+  order_data:

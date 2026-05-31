@@ -1,0 +1,10 @@
+{
+  "properties": {
+    "name": { "type": "text" },
+    "description": { "type": "text" },
+    "price": { "type": "float" },
+    "category": { "type": "keyword" },
+    "stock_count": { "type": "integer" },
+    "image_url": { "type": "keyword" }
+  }
+}
